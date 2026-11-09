@@ -9,6 +9,8 @@ All notable changes are documented here. Format based on [Keep a Changelog](http
 First public release.
 
 ### Added
+- CI mode: `--fail-on <level>`, `--baseline <file>`, `--write-baseline <file>`, `--out <dir>`, `--rate <n>`.
+- GitHub Action (`action.yml`) with report upload; CI job that runs the built CLI against both fixtures.
 - Self-contained `report.html`: no external requests, light and dark, "Fix these first", copy button per fix prompt; everything from the target is HTML-escaped.
 
 ### Added

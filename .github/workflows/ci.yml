@@ -25,3 +25,33 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # Runs the built CLI for real against the fixtures, the same way a user (or the Action) would.
+  dogfood:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Safe app passes
+        run: |
+          node fixtures/safe-app/server.ts & sleep 2
+          node packages/cli/dist/bin.js http://localhost:4011 --rate 200 --out "$RUNNER_TEMP/safe"
+      - name: Vulnerable app fails, passes with its own baseline
+        run: |
+          node fixtures/vulnerable-app/server.ts & sleep 2
+          if node packages/cli/dist/bin.js http://localhost:4010 --rate 200 --out "$RUNNER_TEMP/v1"; then
+            echo "expected the vulnerable app to fail"; exit 1
+          fi
+          node packages/cli/dist/bin.js http://localhost:4010 --rate 200 --out "$RUNNER_TEMP/v2" --write-baseline "$RUNNER_TEMP/baseline.json"
+          node packages/cli/dist/bin.js http://localhost:4010 --rate 200 --out "$RUNNER_TEMP/v3" --baseline "$RUNNER_TEMP/baseline.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dogfood-reports
+          path: ${{ runner.temp }}/v1
+          if-no-files-found: ignore

@@ -1,0 +1,48 @@
+name: vibeprobe
+description: Read-only security scan of a web app you own. Finds the holes AI-built apps ship with and gives fix prompts.
+author: januarsyah901
+branding:
+  icon: shield
+  color: green
+
+inputs:
+  url:
+    description: URL of the running app to scan (localhost only in this version), e.g. http://localhost:3000
+    required: true
+  fail-on:
+    description: "Fail the step for findings at or above this level: critical, high, medium, low, none"
+    default: low
+  baseline:
+    description: Path to a baseline file (from --write-baseline). Only findings not in it are reported and can fail the step.
+    default: ''
+  version:
+    description: vibeprobe version from npm
+    default: latest
+  upload-report:
+    description: Upload the report folder as a workflow artifact
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Run vibeprobe
+      shell: bash
+      env:
+        VP_URL: ${{ inputs.url }}
+        VP_FAIL_ON: ${{ inputs.fail-on }}
+        VP_BASELINE: ${{ inputs.baseline }}
+        VP_VERSION: ${{ inputs.version }}
+      run: |
+        args=("$VP_URL" --fail-on "$VP_FAIL_ON" --out vibeprobe-report)
+        if [ -n "$VP_BASELINE" ]; then args+=(--baseline "$VP_BASELINE"); fi
+        npx --yes "vibeprobe@$VP_VERSION" "${args[@]}"
+    - name: Upload report
+      if: always() && inputs.upload-report == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: vibeprobe-report
+        path: vibeprobe-report
+        if-no-files-found: ignore

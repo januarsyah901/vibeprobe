@@ -59,6 +59,40 @@ npx vibeprobe http://localhost:3000 --recheck SEC-01
 
 The exit code is `0` when clean, `1` when there are findings, `2` for bad input or an out-of-scope target, so it already works in CI.
 
+## Use it in CI
+
+Fail the build when something serious shows up, and accept what you already know about:
+
+```bash
+# Fail only on high and critical findings
+npx vibeprobe http://localhost:3000 --fail-on high
+
+# Accept today's findings once, then only fail on new ones
+npx vibeprobe http://localhost:3000 --write-baseline .vibeprobe-baseline.json
+npx vibeprobe http://localhost:3000 --baseline .vibeprobe-baseline.json
+```
+
+| Flag | What it does |
+| --- | --- |
+| `--fail-on <level>` | Exit `1` only at or above `critical`, `high`, `medium`, `low` (default) or never (`none`). Low-confidence findings never fail a run. |
+| `--baseline <file>` | Hide findings already accepted in the file and fail only on new ones. |
+| `--write-baseline <file>` | Save current findings as accepted and exit `0`. Commit the file. |
+| `--out <dir>` | Report folder (default `./vibeprobe-report`). |
+| `--rate <n>` | Requests per second (default 5). |
+
+As a GitHub Action (works once the npm release is out):
+
+```yaml
+- run: npm run build && npm start &   # your app
+- uses: januarsyah901/vibeprobe@main
+  with:
+    url: http://localhost:3000
+    fail-on: high
+    baseline: .vibeprobe-baseline.json
+```
+
+The report is uploaded as a workflow artifact. A baseline matches findings by check, path and title, so a different port does not make an old finding look new.
+
 ## What it checks
 
 | ID | Check | Severity | Status |
@@ -140,7 +174,7 @@ Fix prompts are filled from templates, not by an LLM, so they are consistent and
 - [ ] SEC-02: Supabase / Firebase open database (asks before touching third-party hosts)
 - [x] Self-contained HTML report
 - [ ] Playwright crawler for single-page apps
-- [ ] `--fail-on`, baseline file and GitHub Action for CI
+- [x] `--fail-on`, baseline file and GitHub Action for CI
 - [ ] SARIF output for the GitHub Security tab
 - [ ] Two-account scan for IDOR (SEC-05)
 - [x] Publish to npm
