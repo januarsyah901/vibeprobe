@@ -6,3 +6,8 @@ vibeprobe-report/
 .DS_Store
 .env
 .env.*
+.next/
+build/
+!.env.example
+__pycache__/
+.venv/
