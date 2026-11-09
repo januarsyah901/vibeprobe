@@ -36,14 +36,25 @@ describe('vulnerable-app: every planted hole is found', () => {
     ['SEC-01', 'Stripe secret key'],
     ['SEC-01', 'AWS access key ID'],
     ['SEC-01', 'Supabase service_role key'],
+    ['SEC-03', '/api/users'],
+    ['SEC-03', '/api/orders'],
+    ['SEC-04', '/admin'],
     ['SEC-06', '.env'],
+    ['SEC-07', 'Error pages reveal'],
     ['SEC-06', '.git/HEAD'],
     ['SEC-06', '.git/config'],
     ['SEC-08', 'Any website can read'],
     ['SEC-09', 'security header'],
+    ['SEC-10', '"session" cookie'],
     ['SEC-11', 'source code can be downloaded'],
   ])('%s: %s', (id, text) => {
     expect(out.result.findings.some((f) => f.checkId === id && f.title.includes(text))).toBe(true);
+  });
+
+  it('rates /api/users high (personal fields) and /api/orders low (only sounds private)', () => {
+    const conf = (t: string) => out.result.findings.find((f) => f.checkId === 'SEC-03' && f.title.includes(t))?.confidence;
+    expect(conf('/api/users')).toBe('high');
+    expect(conf('/api/orders')).toBe('low');
   });
 
   it('sorts the worst first', () => expect(out.result.findings[0]!.severity).toBe('critical'));

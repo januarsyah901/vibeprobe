@@ -16,12 +16,13 @@ Example
   npx vibeprobe http://localhost:3000
 
 Options
+  --recheck <ID>  Run only one check (e.g. SEC-01) to see whether your fix worked
   -h, --help      Show this help
   -v, --version   Show the version
 
 Only localhost targets are allowed in this version.
 Reports are written to ./vibeprobe-report/ (report.json and report.md).
-Exit code: 0 clean, 1 findings or error, 2 bad input or out of scope.`;
+Exit code: 0 clean, 1 findings (low-confidence ones do not count) or error, 2 bad input or out of scope.`;
 
 export async function main(argv: string[]): Promise<number> {
   let parsed;
@@ -32,6 +33,7 @@ export async function main(argv: string[]): Promise<number> {
       options: {
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
+        recheck: { type: 'string' },
       },
     });
   } catch (err) {
@@ -62,6 +64,18 @@ export async function main(argv: string[]): Promise<number> {
     return 2;
   }
 
+  let checks = allChecks;
+  if (values.recheck !== undefined) {
+    const wanted = values.recheck.toUpperCase();
+    const match = allChecks.find((c) => c.id === wanted);
+    if (!match) {
+      console.error(`Unknown check "${values.recheck}". Available: ${allChecks.map((c) => c.id).join(', ')}.`);
+      return 2;
+    }
+    checks = [match];
+  }
+  const recheck = checks.length === 1 && values.recheck !== undefined;
+
   const client = new GuardedHttpClient({ scope: new Scope(), userAgent: `vibeprobe/${version}` });
   try {
     console.log(`Scanning ${target.href} (read-only, localhost only)...`);
@@ -71,17 +85,29 @@ export async function main(argv: string[]): Promise<number> {
         (surface.framework !== 'unknown' ? ` (${surface.framework})` : '') +
         (surface.isDevServer ? '. Dev server detected: production-only checks are skipped.' : '.'),
     );
-    const { findings, errors } = await runChecks(allChecks, { client, surface, target });
+    const { findings, errors } = await runChecks(checks, { client, surface, target });
     for (const f of findings) {
       console.log(`\n[${f.severity.toUpperCase()}] ${f.title} (${f.checkId}, confidence ${f.confidence})\n  ${f.url}`);
     }
     for (const e of errors) console.error(`Check ${e.checkId} failed: ${e.message}`);
+    // Low-confidence findings are shown but never fail a run (PRD).
+    const failing = findings.filter((f) => f.confidence !== 'low');
+    if (recheck) {
+      const id = checks[0]!.id;
+      if (errors.length > 0) return 1;
+      console.log(
+        failing.length === 0
+          ? `\n${id}: no problems found. Looks fixed.`
+          : `\n${id}: still ${failing.length} problem${failing.length > 1 ? 's' : ''}. Apply the fix prompt and run again.`,
+      );
+      return failing.length > 0 ? 1 : 0;
+    }
     const dir = join(process.cwd(), 'vibeprobe-report');
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, 'report.json'), JSON.stringify({ version, target: target.href, findings, errors }, null, 2));
     await writeFile(join(dir, 'report.md'), toMarkdown(target.href, findings));
     console.log(`\n${summary(findings)}. Report: ${join('vibeprobe-report', 'report.md')}`);
-    return findings.length > 0 || errors.length > 0 ? 1 : 0;
+    return failing.length > 0 || errors.length > 0 ? 1 : 0;
   } catch (err) {
     if (err instanceof ScopeError) {
       console.error(`Refused: ${err.message}`);

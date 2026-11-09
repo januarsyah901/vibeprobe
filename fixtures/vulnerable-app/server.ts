@@ -13,6 +13,7 @@ const stripe = "${fakeStripe}";
 const aws = "${fakeAws}";
 const supabaseAdmin = "${fakeServiceRoleJwt}";
 fetch("/api/users").then(r => r.json());
+fetch("/api/orders").then(r => r.json());
 //# ${"source" + "MappingURL"}=app.js.map
 `;
 
@@ -25,13 +26,22 @@ export function createApp(): Server {
       res.setHeader('access-control-allow-origin', origin);
       res.setHeader('access-control-allow-credentials', 'true');
     }
-    const send = (status: number, type: string, body: string) => {
-      res.writeHead(status, { 'content-type': type });
+    const send = (status: number, type: string, body: string, extra: Record<string, string> = {}) => {
+      res.writeHead(status, { 'content-type': type, ...extra });
       res.end(body);
     };
     switch (path) {
       case '/':
-        return send(200, 'text/html', '<!doctype html><title>demo</title><script src="/assets/app.js"></script><h1>Demo shop</h1>');
+        // SEC-10: a session cookie with no HttpOnly / SameSite.
+        return send(200, 'text/html', '<!doctype html><title>demo</title><script src="/assets/app.js"></script><h1>Demo shop</h1>', {
+          'set-cookie': 'session=abc123def456; Path=/',
+        });
+      case '/admin':
+        // SEC-04: an admin page with a data table and no login.
+        return send(200, 'text/html', '<!doctype html><title>Admin Dashboard</title><h1>Admin panel</h1><table><tr><td>a@example.com</td></tr></table>');
+      case '/api/orders':
+        // SEC-03 (low confidence): sounds private, but holds no personal fields.
+        return send(200, 'application/json', '[{"id":7,"total":19}]');
       case '/assets/app.js':
         return send(200, 'text/javascript', APP_JS);
       case '/assets/app.js.map':
@@ -45,7 +55,12 @@ export function createApp(): Server {
       case '/.git/config':
         return send(200, 'text/plain', '[core]\n\trepositoryformatversion = 0\n[remote "origin"]\n\turl = https://token123@github.com/demo/shop.git\n');
       default:
-        return send(404, 'text/plain', 'not found');
+        // SEC-07: unknown paths print a stack trace.
+        return send(
+          500,
+          'text/html',
+          '<pre>Error: ENOENT: no such file or directory\n    at Object.openSync (node:fs:573:18)\n    at handle (/srv/app/server.js:41:11)\n    at Layer.handle (/srv/app/node_modules/express/lib/router/layer.js:95:5)</pre>',
+        );
     }
   });
 }

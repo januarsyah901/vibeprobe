@@ -16,9 +16,20 @@ const SECURITY_HEADERS = {
   'referrer-policy': 'strict-origin-when-cross-origin',
 };
 
+const LOGIN = '<!doctype html><title>Log in</title><h1>Log in</h1><form><input type="password" name="p"></form>';
+
 export function createApp(): Server {
   return createServer((req, res) => {
     const path = (req.url ?? '/').split('?')[0];
+    // /admin is protected: anonymous users are sent to the login page (must not be reported).
+    if (path === '/admin') {
+      res.writeHead(302, { location: '/login', ...SECURITY_HEADERS });
+      return res.end();
+    }
+    if (path === '/login') {
+      res.writeHead(200, { 'content-type': 'text/html', ...SECURITY_HEADERS });
+      return res.end(LOGIN);
+    }
     if (path === '/assets/app.js') {
       res.writeHead(200, { 'content-type': 'text/javascript', ...SECURITY_HEADERS });
       return res.end(APP_JS);
@@ -27,7 +38,12 @@ export function createApp(): Server {
       res.writeHead(200, { 'content-type': 'application/json', ...SECURITY_HEADERS });
       return res.end('[{"id":1,"name":"Mug"}]');
     }
-    res.writeHead(200, { 'content-type': 'text/html', ...SECURITY_HEADERS });
+    // Safe cookies: the session cookie has its flags; the theme cookie is not a session, so it is not judged.
+    res.writeHead(200, {
+      'content-type': 'text/html',
+      ...SECURITY_HEADERS,
+      'set-cookie': ['sid=s3cr3tvalue; Path=/; HttpOnly; SameSite=Lax', 'theme=dark; Path=/'],
+    });
     res.end(INDEX);
   });
 }

@@ -13,7 +13,7 @@
 **vibeprobe tests the app you are building, while it runs, the way an attacker would, but read-only and only against apps you own.** It finds the holes AI-written apps tend to ship with, explains each one in plain language, and gives you a **fix prompt** to paste into Cursor, Claude Code, Lovable or Bolt.
 
 <p align="center">
-  <img src="docs/assets/demo.svg" alt="vibeprobe scanning a deliberately vulnerable demo app and reporting 9 findings" width="860">
+  <img src="docs/assets/demo.svg" alt="vibeprobe scanning a deliberately vulnerable demo app and reporting 13 findings" width="860">
 </p>
 
 ## Why
@@ -46,7 +46,15 @@ node packages/cli/dist/bin.js http://localhost:4010
 node packages/cli/dist/bin.js http://localhost:3000
 ```
 
-Reports are written to `./vibeprobe-report/` as `report.md` and `report.json`. The exit code is `0` when clean, `1` when there are findings, `2` for bad input or an out-of-scope target, so it already works in CI.
+Reports are written to `./vibeprobe-report/` as `report.md` and `report.json`. Low-confidence findings are listed separately under *Needs a human look* and never fail a run.
+
+Fixed something? Re-run just that check:
+
+```bash
+node packages/cli/dist/bin.js http://localhost:3000 --recheck SEC-01
+```
+
+The exit code is `0` when clean, `1` when there are findings, `2` for bad input or an out-of-scope target, so it already works in CI.
 
 ## What it checks
 
@@ -54,17 +62,17 @@ Reports are written to `./vibeprobe-report/` as `report.md` and `report.json`. T
 | --- | --- | --- | --- |
 | SEC-01 | Secrets in the JavaScript bundle (Stripe, AWS, GitHub, Slack, private keys, Supabase `service_role`) | Critical | ✅ done |
 | SEC-02 | Open database: Supabase tables without RLS, open Firebase rules | Critical | 🛠 planned |
-| SEC-03 | API endpoints that answer without authentication | High | 🛠 planned |
-| SEC-04 | Admin pages without protection | High | 🛠 planned |
+| SEC-03 | API endpoints that answer without authentication | High | ✅ done |
+| SEC-04 | Admin pages without protection | High | ✅ done |
 | SEC-05 | IDOR: change an ID, see someone else's data (two test accounts) | High | 🛠 planned |
 | SEC-06 | Exposed `.env`, `.git/` and backup files | Critical | ✅ done |
-| SEC-07 | Debug mode and stack traces in production | Medium | 🛠 planned |
+| SEC-07 | Debug mode and stack traces in production | Medium | ✅ done |
 | SEC-08 | CORS that reflects any origin with credentials | High | ✅ done |
 | SEC-09 | Missing security headers | Low | ✅ done |
-| SEC-10 | Session cookies without `Secure` / `HttpOnly` / `SameSite` | Medium | 🛠 planned |
+| SEC-10 | Session cookies without `Secure` / `HttpOnly` / `SameSite` | Medium | ✅ done |
 | SEC-11 | Source maps exposed in production | Medium | ✅ done |
 
-A Supabase **anon** key is public by design and is never reported. vibeprobe detects dev servers and skips production-only checks there, so `npm run dev` does not drown you in noise.
+A Supabase **anon** key is public by design and is never reported. Endpoints that are public on purpose (like `/api/products`) are not flagged; SEC-03 is high confidence only when the response holds personal-data fields. vibeprobe detects dev servers and skips production-only checks there, so `npm run dev` does not drown you in noise.
 
 ## How it works
 
@@ -122,10 +130,10 @@ Fix prompts are filled from templates, not by an LLM, so they are consistent and
 
 - [x] Scope lock, DNS-rebinding protection, read-only HTTP client, rate limiter
 - [x] Crawler, check engine, zod-validated findings
-- [x] SEC-01, 06, 08, 09, 11 with vulnerable + safe fixtures
+- [x] SEC-01, 03, 04, 06, 07, 08, 09, 10, 11 with vulnerable + safe fixtures
 - [x] Markdown and JSON reports
-- [ ] `--recheck <ID>`: re-run one check after you fix it
-- [ ] SEC-03, 04, 07, 10
+- [x] `--recheck <ID>`: re-run one check after you fix it
+- [x] SEC-03, 04, 07, 10
 - [ ] SEC-02: Supabase / Firebase open database (asks before touching third-party hosts)
 - [ ] Self-contained HTML report
 - [ ] Playwright crawler for single-page apps

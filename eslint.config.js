@@ -15,7 +15,7 @@ export default tseslint.config(
   },
   {
     // The guard itself, and its tests (which run a local server), may use network modules.
-    files: ['packages/core/src/guarded-client.ts', 'packages/core/src/scope.ts', 'packages/core/test/**/*.ts', 'packages/checks/test/**/*.ts'],
+    files: ['packages/core/src/guarded-client.ts', 'packages/core/src/scope.ts', 'packages/core/test/**/*.ts', 'packages/checks/test/**/*.ts', 'packages/cli/test/**/*.ts'],
     rules: { 'no-restricted-globals': 'off', 'no-restricted-imports': 'off' },
   },
 );
