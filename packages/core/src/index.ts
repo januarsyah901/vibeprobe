@@ -2,3 +2,8 @@ export * from './errors';
 export * from './scope';
 export * from './rate-limiter';
 export * from './guarded-client';
+export * from './mask';
+export * from './finding';
+export * from './surface';
+export * from './crawler';
+export * from './check';

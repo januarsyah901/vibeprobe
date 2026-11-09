@@ -43,6 +43,7 @@
     "undici": "^8.12.4"
   },
   "devDependencies": {
-    "@vibeprobe/core": "0.0.0"
+    "@vibeprobe/core": "0.0.0",
+    "@vibeprobe/checks": "0.0.0"
   }
 }

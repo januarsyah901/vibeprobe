@@ -1,6 +1,10 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { GuardedHttpClient, Scope, ScopeError, VibeprobeError } from '@vibeprobe/core';
+import { GuardedHttpClient, Scope, ScopeError, VibeprobeError, crawl, runChecks } from '@vibeprobe/core';
+import { allChecks } from '@vibeprobe/checks';
 import { version } from '../package.json';
+import { summary, toMarkdown } from './report';
 
 const HELP = `vibeprobe ${version}
 Local security scanner for apps built with AI. Scans apps you own, read-only.
@@ -16,7 +20,8 @@ Options
   -v, --version   Show the version
 
 Only localhost targets are allowed in this version.
-Status: early preview. The scan checks land in v0.1.0; this release only checks that the target is reachable.`;
+Reports are written to ./vibeprobe-report/ (report.json and report.md).
+Exit code: 0 clean, 1 findings or error, 2 bad input or out of scope.`;
 
 export async function main(argv: string[]): Promise<number> {
   let parsed;
@@ -59,10 +64,24 @@ export async function main(argv: string[]): Promise<number> {
 
   const client = new GuardedHttpClient({ scope: new Scope(), userAgent: `vibeprobe/${version}` });
   try {
-    const res = await client.request(target);
-    console.log(`Reached ${res.url} (HTTP ${res.status}).`);
-    console.log('Security checks are not in this preview yet. Follow the project for v0.1.0.');
-    return 0;
+    console.log(`Scanning ${target.href} (read-only, localhost only)...`);
+    const surface = await crawl(client, target);
+    console.log(
+      `Mapped ${surface.pages.length} page(s), ${surface.scripts.length} script(s), ${surface.endpoints.length} endpoint(s)` +
+        (surface.framework !== 'unknown' ? ` (${surface.framework})` : '') +
+        (surface.isDevServer ? '. Dev server detected: production-only checks are skipped.' : '.'),
+    );
+    const { findings, errors } = await runChecks(allChecks, { client, surface, target });
+    for (const f of findings) {
+      console.log(`\n[${f.severity.toUpperCase()}] ${f.title} (${f.checkId}, confidence ${f.confidence})\n  ${f.url}`);
+    }
+    for (const e of errors) console.error(`Check ${e.checkId} failed: ${e.message}`);
+    const dir = join(process.cwd(), 'vibeprobe-report');
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, 'report.json'), JSON.stringify({ version, target: target.href, findings, errors }, null, 2));
+    await writeFile(join(dir, 'report.md'), toMarkdown(target.href, findings));
+    console.log(`\n${summary(findings)}. Report: ${join('vibeprobe-report', 'report.md')}`);
+    return findings.length > 0 || errors.length > 0 ? 1 : 0;
   } catch (err) {
     if (err instanceof ScopeError) {
       console.error(`Refused: ${err.message}`);

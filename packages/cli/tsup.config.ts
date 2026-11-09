@@ -6,7 +6,7 @@ export default defineConfig({
   target: 'node22',
   platform: 'node',
   clean: true,
-  // core is private: bundle it into the published CLI.
-  noExternal: ['@vibeprobe/core'],
+  // core and checks are private: bundle it into the published CLI.
+  noExternal: ['@vibeprobe/core', '@vibeprobe/checks'],
   banner: { js: '#!/usr/bin/env node' },
 });

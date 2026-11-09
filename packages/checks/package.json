@@ -1,0 +1,9 @@
+{
+  "name": "@vibeprobe/checks",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The security checks that ship with vibeprobe. One file per check.",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@vibeprobe/core": "0.0.0" }
+}

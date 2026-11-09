@@ -7,7 +7,7 @@ Point it at the app running on your laptop. It finds the holes AI-written apps t
 npx vibeprobe http://localhost:3000
 ```
 
-> **Status: early preview (0.0.x).** The safety core is in place: scope lock, DNS-rebinding protection, read-only requests and rate limiting, all covered by tests. The security checks land in **v0.1.0**. Watch or star the repo to follow along.
+> **Status: early preview (0.0.x), not on npm yet.** Working today: the safety core (scope lock, DNS-rebinding protection, read-only requests, rate limiting), a crawler, and 5 checks (SEC-01, 06, 08, 09, 11) with Markdown and JSON reports. Every check is tested against a deliberately vulnerable app (must find the hole) and a safe app (must stay silent). Coming for v0.1.0: SEC-02, 03, 04, 07, 10, an HTML report, and the `--recheck` flag. Watch or star the repo to follow along.
 
 ## Why
 
@@ -15,20 +15,20 @@ Most security tooling for AI-built apps reads your code. vibeprobe tests the **r
 
 Tools like OWASP ZAP and Nuclei are powerful but built for security people. vibeprobe is built for the person who just shipped a feature with an AI assistant and wants to know: *is this safe to share?*
 
-## What it will check (v0.1.0)
+## Checks
 
-| ID | Check | Severity |
-| --- | --- | --- |
-| SEC-01 | Secrets in the JavaScript bundle (e.g. a Supabase `service_role` key) | Critical |
-| SEC-02 | Open database: Supabase tables without RLS, open Firebase rules | Critical |
-| SEC-03 | API endpoints that answer without authentication | High |
-| SEC-04 | Admin pages without protection | High |
-| SEC-06 | Exposed `.env`, `.git/` and backup files | Critical |
-| SEC-07 | Debug mode and stack traces in production | Medium |
-| SEC-08 | CORS that reflects any origin with credentials | High |
-| SEC-09 | Missing security headers | Low |
-| SEC-10 | Session cookies without `Secure` / `HttpOnly` / `SameSite` | Medium |
-| SEC-11 | Source maps exposed in production | Medium |
+| ID | Check | Severity | Status |
+| --- | --- | --- | --- |
+| SEC-01 | Secrets in the JavaScript bundle (e.g. a Supabase `service_role` key) | Critical | done |
+| SEC-02 | Open database: Supabase tables without RLS, open Firebase rules | Critical | planned |
+| SEC-03 | API endpoints that answer without authentication | High | planned |
+| SEC-04 | Admin pages without protection | High | planned |
+| SEC-06 | Exposed `.env`, `.git/` and backup files | Critical | done |
+| SEC-07 | Debug mode and stack traces in production | Medium | planned |
+| SEC-08 | CORS that reflects any origin with credentials | High | done |
+| SEC-09 | Missing security headers | Low | done |
+| SEC-10 | Session cookies without `Secure` / `HttpOnly` / `SameSite` | Medium | planned |
+| SEC-11 | Source maps exposed in production | Medium | done |
 
 Planned next: IDOR with two test accounts (SEC-05), CI mode with a baseline, SARIF output.
 
@@ -61,9 +61,10 @@ node packages/cli/dist/bin.js http://localhost:3000
 
 ```
 packages/
-  core/   # Scope guard, guarded HTTP client, rate limiter (more: crawler, check engine)
-  cli/    # the `vibeprobe` npm package
-fixtures/ # deliberately vulnerable and safe demo apps (coming with v0.1.0)
+  core/     # scope guard, guarded HTTP client, rate limiter, crawler, check runner, finding schema
+  checks/   # one file per check
+  cli/      # the `vibeprobe` npm package
+fixtures/   # deliberately vulnerable app and a safe app (see fixtures/README.md)
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). To report a vulnerability in vibeprobe itself, see [SECURITY.md](SECURITY.md).
