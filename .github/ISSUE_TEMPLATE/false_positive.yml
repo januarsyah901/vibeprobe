@@ -1,0 +1,24 @@
+name: False positive
+description: vibeprobe reported something that is not a real problem
+labels: [false-positive]
+body:
+  - type: markdown
+    attributes:
+      value: Accuracy matters more than coverage here. Thank you for reporting this.
+  - type: input
+    id: check
+    attributes:
+      label: Check ID
+      placeholder: SEC-03
+    validations: { required: true }
+  - type: textarea
+    id: why
+    attributes:
+      label: Why is it wrong?
+      description: Paste the finding (secrets masked) and explain why it is not a problem in your app.
+    validations: { required: true }
+  - type: input
+    id: stack
+    attributes:
+      label: Framework / hosting
+      placeholder: Next.js on Vercel

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability in vibeprobe
+    url: https://github.com/januarsyah901/vibeprobe/security/advisories/new
+    about: Scope escapes, non-read-only requests, unmasked secrets. Please report privately.
+  - name: Questions and ideas
+    url: https://github.com/januarsyah901/vibeprobe/discussions
+    about: Ask how to use vibeprobe or float an idea before opening an issue.

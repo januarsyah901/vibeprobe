@@ -1,0 +1,28 @@
+name: Propose a new check
+description: A hole that AI-built apps commonly ship with
+labels: [new-check]
+body:
+  - type: textarea
+    id: hole
+    attributes:
+      label: What is the hole?
+      description: Describe it in plain language. Who is affected and what can an attacker do?
+    validations: { required: true }
+  - type: textarea
+    id: detect
+    attributes:
+      label: How can it be detected read-only?
+      description: Which `GET` / `HEAD` / `OPTIONS` request, and what in the response proves it (not just a `200`)?
+    validations: { required: true }
+  - type: textarea
+    id: safe
+    attributes:
+      label: What does a safe app look like?
+      description: The check must stay silent here. This is what the safe fixture will do.
+    validations: { required: true }
+  - type: checkboxes
+    id: pr
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to implement this (see docs/writing-a-check.md)
