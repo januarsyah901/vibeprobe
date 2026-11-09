@@ -4,6 +4,10 @@ All notable changes are documented here. Format based on [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-09
+
+First public release.
+
 ### Added
 - Scope lock: only `localhost`, `127.0.0.1`, `[::1]` and `*.localhost` by default.
 - `GuardedHttpClient`: read-only methods, per-hop redirect checks, connect-time DNS validation against rebinding, token-bucket rate limit, backoff on 429/503, response size cap.

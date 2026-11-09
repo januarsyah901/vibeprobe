@@ -6,7 +6,8 @@
   <a href="https://github.com/januarsyah901/vibeprobe/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/januarsyah901/vibeprobe/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
   <img alt="Node 22.18+" src="https://img.shields.io/badge/node-%3E%3D22.18-339933.svg">
-  <img alt="Status: preview" src="https://img.shields.io/badge/status-preview-orange.svg">
+  <a href="https://www.npmjs.com/package/vibeprobe"><img alt="npm" src="https://img.shields.io/npm/v/vibeprobe.svg"></a>
+  <img alt="Status: early" src="https://img.shields.io/badge/status-early-orange.svg">
   <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
 </p>
 
@@ -31,19 +32,19 @@ General scanners such as OWASP ZAP and Nuclei can find these too, but they are b
 
 ## Quick start
 
-> **vibeprobe is an early preview and is not on npm yet.** Run it from source (Node.js 22.18+):
+Requires Node.js 22.18+. Start your app, then in another terminal:
 
 ```bash
-git clone https://github.com/januarsyah901/vibeprobe.git
-cd vibeprobe
+npx vibeprobe http://localhost:3000
+```
+
+Want to see it find something first? Run the deliberately vulnerable demo app from source:
+
+```bash
+git clone https://github.com/januarsyah901/vibeprobe.git && cd vibeprobe
 npm install && npm run build
-
-# Try it on the bundled demo apps
-node fixtures/vulnerable-app/server.ts &   # http://localhost:4010 (deliberately insecure)
+node fixtures/vulnerable-app/server.ts &   # http://localhost:4010 (insecure on purpose, localhost only)
 node packages/cli/dist/bin.js http://localhost:4010
-
-# Then on your own app
-node packages/cli/dist/bin.js http://localhost:3000
 ```
 
 Reports are written to `./vibeprobe-report/` as `report.md` and `report.json`. Low-confidence findings are listed separately under *Needs a human look* and never fail a run.
@@ -51,7 +52,7 @@ Reports are written to `./vibeprobe-report/` as `report.md` and `report.json`. L
 Fixed something? Re-run just that check:
 
 ```bash
-node packages/cli/dist/bin.js http://localhost:3000 --recheck SEC-01
+npx vibeprobe http://localhost:3000 --recheck SEC-01
 ```
 
 The exit code is `0` when clean, `1` when there are findings, `2` for bad input or an out-of-scope target, so it already works in CI.
@@ -140,7 +141,7 @@ Fix prompts are filled from templates, not by an LLM, so they are consistent and
 - [ ] `--fail-on`, baseline file and GitHub Action for CI
 - [ ] SARIF output for the GitHub Security tab
 - [ ] Two-account scan for IDOR (SEC-05)
-- [ ] Publish to npm
+- [x] Publish to npm
 
 Ideas and votes live in [issues](https://github.com/januarsyah901/vibeprobe/issues); look for **good first issue**.
 

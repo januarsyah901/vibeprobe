@@ -1,6 +1,6 @@
 {
   "name": "vibeprobe",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Local, read-only security scanner for apps built with AI. One command, plain-language report, fix prompts ready to paste.",
   "keywords": [
     "security",
