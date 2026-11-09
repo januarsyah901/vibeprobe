@@ -1,0 +1,9 @@
+{
+  "name": "@vibeprobe/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Scope guard, guarded HTTP client and shared engine for vibeprobe.",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "undici": "^8.12.4" }
+}

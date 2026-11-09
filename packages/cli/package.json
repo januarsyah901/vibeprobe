@@ -1,0 +1,48 @@
+{
+  "name": "vibeprobe",
+  "version": "0.0.0",
+  "description": "Local, read-only security scanner for apps built with AI. One command, plain-language report, fix prompts ready to paste.",
+  "keywords": [
+    "security",
+    "scanner",
+    "vibe-coding",
+    "supabase",
+    "nextjs",
+    "vite",
+    "dast",
+    "cli"
+  ],
+  "license": "MIT",
+  "author": "januarsyah901",
+  "homepage": "https://github.com/januarsyah901/vibeprobe#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/januarsyah901/vibeprobe.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/januarsyah901/vibeprobe/issues"
+  },
+  "type": "module",
+  "bin": {
+    "vibeprobe": "./dist/bin.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "npm run build",
+    "prepack": "cp ../../README.md ../../LICENSE .",
+    "postpack": "rm -f README.md LICENSE"
+  },
+  "dependencies": {
+    "undici": "^8.12.4"
+  },
+  "devDependencies": {
+    "@vibeprobe/core": "0.0.0"
+  }
+}
