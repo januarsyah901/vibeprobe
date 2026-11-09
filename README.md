@@ -49,7 +49,7 @@ node fixtures/vulnerable-app/server.ts &   # http://localhost:4010 (insecure on 
 node packages/cli/dist/bin.js http://localhost:4010
 ```
 
-Reports are written to `./vibeprobe-report/` as `report.md` and `report.json`. Low-confidence findings are listed separately under *Needs a human look* and never fail a run.
+Reports are written to `./vibeprobe-report/`: an offline `report.html` (open it in a browser), plus `report.md` and `report.json`. The HTML report is one self-contained file with no external requests, a "Fix these first" section, and a copy button on every fix prompt. Low-confidence findings are listed separately under *Needs a human look* and never fail a run.
 
 Fixed something? Re-run just that check:
 
@@ -134,11 +134,11 @@ Fix prompts are filled from templates, not by an LLM, so they are consistent and
 - [x] Scope lock, DNS-rebinding protection, read-only HTTP client, rate limiter
 - [x] Crawler, check engine, zod-validated findings
 - [x] SEC-01, 03, 04, 06, 07, 08, 09, 10, 11 with vulnerable + safe fixtures
-- [x] Markdown and JSON reports
+- [x] HTML, Markdown and JSON reports
 - [x] `--recheck <ID>`: re-run one check after you fix it
 - [x] SEC-03, 04, 07, 10
 - [ ] SEC-02: Supabase / Firebase open database (asks before touching third-party hosts)
-- [ ] Self-contained HTML report
+- [x] Self-contained HTML report
 - [ ] Playwright crawler for single-page apps
 - [ ] `--fail-on`, baseline file and GitHub Action for CI
 - [ ] SARIF output for the GitHub Security tab

@@ -5,6 +5,7 @@ import { GuardedHttpClient, Scope, ScopeError, VibeprobeError, crawl, runChecks 
 import { allChecks } from '@vibeprobe/checks';
 import { version } from '../package.json';
 import { summary, toMarkdown } from './report';
+import { toHtml } from './report-html';
 
 const HELP = `vibeprobe ${version}
 Local security scanner for apps built with AI. Scans apps you own, read-only.
@@ -21,7 +22,7 @@ Options
   -v, --version   Show the version
 
 Only localhost targets are allowed in this version.
-Reports are written to ./vibeprobe-report/ (report.json and report.md).
+Reports are written to ./vibeprobe-report/ (report.html, report.md, report.json).
 Exit code: 0 clean, 1 findings (low-confidence ones do not count) or error, 2 bad input or out of scope.`;
 
 export async function main(argv: string[]): Promise<number> {
@@ -106,7 +107,8 @@ export async function main(argv: string[]): Promise<number> {
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, 'report.json'), JSON.stringify({ version, target: target.href, findings, errors }, null, 2));
     await writeFile(join(dir, 'report.md'), toMarkdown(target.href, findings));
-    console.log(`\n${summary(findings)}. Report: ${join('vibeprobe-report', 'report.md')}`);
+    await writeFile(join(dir, 'report.html'), toHtml(findings, { target: target.href, version, generatedAt: new Date() }));
+    console.log(`\n${summary(findings)}. Report: ${join('vibeprobe-report', 'report.html')}`);
     return failing.length > 0 || errors.length > 0 ? 1 : 0;
   } catch (err) {
     if (err instanceof ScopeError) {
