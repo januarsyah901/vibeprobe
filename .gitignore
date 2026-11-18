@@ -11,3 +11,6 @@ build/
 !.env.example
 __pycache__/
 .venv/
+
+# local credentials — never commit
+npmjs_ac.json

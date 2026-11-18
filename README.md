@@ -32,8 +32,6 @@ General scanners such as OWASP ZAP and Nuclei can find these too, but they are b
 
 ## Quick start
 
-> **The npm release is pending.** Until `npx vibeprobe` works, use the from-source steps below.
-
 Requires Node.js 22.18+. Start your app, then in another terminal:
 
 ```bash
