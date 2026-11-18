@@ -47,6 +47,15 @@ describe('vulnerable-app: every planted hole is found', () => {
     ['SEC-09', 'security header'],
     ['SEC-10', '"session" cookie'],
     ['SEC-11', 'source code can be downloaded'],
+    ['SEC-06', 'Database dump'],
+    ['SEC-06', '/actuator/env'],
+    ['SEC-06', 'Prometheus metrics'],
+    ['SEC-06', 'Directory listing (/uploads/)'],
+    ['SEC-12', 'API documentation is public (/openapi.json)'],
+    ['SEC-12', 'GraphQL introspection is enabled'],
+    ['SEC-13', 'Stripe secret key is returned by /api/config'],
+    ['SEC-14', 'An admin login token is public'],
+    ['SEC-15', '/go redirects visitors to any website'],
   ])('%s: %s', (id, text) => {
     expect(out.result.findings.some((f) => f.checkId === id && f.title.includes(text))).toBe(true);
   });

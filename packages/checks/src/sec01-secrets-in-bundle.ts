@@ -1,34 +1,5 @@
 import { curlFor, maskSecret, type Check, type Finding } from '@vibeprobe/core';
-
-interface Pattern {
-  name: string;
-  re: RegExp;
-  /** Return false to ignore a match (e.g. a public key). */
-  accept?: (match: string) => boolean;
-}
-
-function jwtRole(token: string): string | undefined {
-  try {
-    const payload = token.split('.')[1]!;
-    return (JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { role?: string }).role;
-  } catch {
-    return undefined;
-  }
-}
-
-const PATTERNS: Pattern[] = [
-  { name: 'Stripe secret key', re: /\bsk_live_[0-9A-Za-z]{16,}\b/g },
-  { name: 'AWS access key ID', re: /\bAKIA[0-9A-Z]{16}\b/g },
-  { name: 'GitHub token', re: /\bgh[pousr]_[0-9A-Za-z]{30,}\b/g },
-  { name: 'Private key', re: /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/g },
-  { name: 'Slack token', re: /\bxox[abprs]-[0-9A-Za-z-]{20,}\b/g },
-  {
-    // Supabase anon keys are public by design: only the service_role key is a leak.
-    name: 'Supabase service_role key',
-    re: /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
-    accept: (m) => jwtRole(m) === 'service_role',
-  },
-];
+import { SECRET_PATTERNS } from './secret-patterns';
 
 export const sec01: Check = {
   id: 'SEC-01',
@@ -37,7 +8,7 @@ export const sec01: Check = {
   async run({ surface }) {
     const findings: Finding[] = [];
     for (const script of surface.scripts) {
-      for (const p of PATTERNS) {
+      for (const p of SECRET_PATTERNS) {
         for (const m of script.body.matchAll(p.re)) {
           if (p.accept && !p.accept(m[0])) continue;
           const masked = p.name === 'Private key' ? '-----BEGIN PRIVATE KEY----- ****' : maskSecret(m[0]);
