@@ -49,6 +49,16 @@ jobs:
           fi
           node packages/cli/dist/bin.js http://localhost:4010 --rate 200 --out "$RUNNER_TEMP/v2" --write-baseline "$RUNNER_TEMP/baseline.json"
           node packages/cli/dist/bin.js http://localhost:4010 --rate 200 --out "$RUNNER_TEMP/v3" --baseline "$RUNNER_TEMP/baseline.json"
+      - name: Active mode and SARIF
+        run: |
+          node packages/cli/dist/bin.js http://localhost:4011 --active full --yes --rate 200 --out "$RUNNER_TEMP/safe-active" --sarif "$RUNNER_TEMP/safe.sarif"
+          if node packages/cli/dist/bin.js http://localhost:4010 --active full --yes --rate 200 --out "$RUNNER_TEMP/v-active" --sarif "$RUNNER_TEMP/v.sarif"; then
+            echo "expected the vulnerable app to fail in active mode"; exit 1
+          fi
+          # Without --yes and without a terminal, active mode must refuse and exit 2.
+          set +e; node packages/cli/dist/bin.js http://localhost:4011 --active --out "$RUNNER_TEMP/refused" </dev/null; code=$?; set -e
+          [ "$code" -eq 2 ] || { echo "expected exit 2 without --yes, got $code"; exit 1; }
+          node -e "const s=JSON.parse(require('fs').readFileSync(process.env.RUNNER_TEMP+'/v.sarif','utf8')); if(s.version!=='2.1.0'||s.runs[0].results.length<20) process.exit(1)"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

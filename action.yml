@@ -18,6 +18,12 @@ inputs:
   version:
     description: vibeprobe version from npm
     default: latest
+  active:
+    description: "Also run active checks (localhost only): light or full. Empty means read-only."
+    default: ''
+  sarif:
+    description: "Write a SARIF file with this name and upload it to the GitHub Security tab (needs permissions: security-events: write)"
+    default: ''
   upload-report:
     description: Upload the report folder as a workflow artifact
     default: 'true'
@@ -35,9 +41,13 @@ runs:
         VP_FAIL_ON: ${{ inputs.fail-on }}
         VP_BASELINE: ${{ inputs.baseline }}
         VP_VERSION: ${{ inputs.version }}
+        VP_ACTIVE: ${{ inputs.active }}
+        VP_SARIF: ${{ inputs.sarif }}
       run: |
         args=("$VP_URL" --fail-on "$VP_FAIL_ON" --out vibeprobe-report)
         if [ -n "$VP_BASELINE" ]; then args+=(--baseline "$VP_BASELINE"); fi
+        if [ -n "$VP_ACTIVE" ]; then args+=(--active "$VP_ACTIVE" --yes); fi
+        if [ -n "$VP_SARIF" ]; then args+=(--sarif "$VP_SARIF"); fi
         npx --yes "vibeprobe@$VP_VERSION" "${args[@]}"
     - name: Upload report
       if: always() && inputs.upload-report == 'true'
@@ -46,3 +56,9 @@ runs:
         name: vibeprobe-report
         path: vibeprobe-report
         if-no-files-found: ignore
+    - name: Upload SARIF to the Security tab
+      if: always() && inputs.sarif != ''
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif }}
+        category: vibeprobe

@@ -27,7 +27,7 @@ flowchart TD
 
 `GuardedHttpClient` is the **only** code allowed to touch the network. It refuses, before sending anything:
 
-1. methods outside the allowed set (default `GET`, `HEAD`, `OPTIONS`);
+1. methods outside the allowed set (default `GET`, `HEAD`, `OPTIONS`; `POST`, `PUT`, `PATCH` only with an `ActiveConsent`, localhost only, never retried; `DELETE` never) — see [active-mode.md](active-mode.md);
 2. URLs outside the scope, **on every redirect hop** (redirects are followed manually);
 3. hostnames that resolve to an address the scope forbids. The check runs inside the connect-time DNS lookup, so the address that is validated is the address that is used. That is what stops DNS rebinding.
 

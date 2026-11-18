@@ -54,7 +54,7 @@ Register it in `packages/checks/src/index.ts`.
 
 ## 3. Rules
 
-- **Read-only.** Only `GET`, `HEAD`, `OPTIONS`, only through `ctx.client`. Do not import `fetch`, `undici` or `node:http`; lint will stop you.
+- **Read-only.** A normal check (`SEC-nn`) sends only `GET`, `HEAD`, `OPTIONS`, only through `ctx.client`. Do not import `fetch`, `undici` or `node:http`; lint will stop you. A check that has to send test payloads is an **active check** (`ACT-nn`): see [active-mode.md](active-mode.md) for the extra rules (localhost only, harmless payloads, `mode: 'active'`).
 - **Mask secrets.** Use `maskSecret` / `maskEnvLines` before putting anything in `evidence`.
 - **High confidence needs proof.** A signature match on the response body, not just a status code.
 - **Two fixtures.** Add the planted hole to `fixtures/vulnerable-app/server.ts` and make sure `fixtures/safe-app/server.ts` stays clean. Fake secrets must be built at runtime (string concatenation) so secret scanners do not flag the repo.

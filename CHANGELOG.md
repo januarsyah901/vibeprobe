@@ -4,6 +4,20 @@ All notable changes are documented here. Format based on [Keep a Changelog](http
 
 ## [Unreleased]
 
+## [Unreleased]
+
+### Added
+- **Active mode** (`--active [light|full]`, localhost only): ACT-01 reflected XSS, ACT-02 SQL injection (error-based), ACT-03 CSRF, ACT-04 path traversal, ACT-05 login attempt limit, ACT-06 write endpoints without login, ACT-07 mass assignment, ACT-08 NoSQL injection, ACT-09 template injection, ACT-10 SSRF (canary listener on 127.0.0.1), ACT-11 Host header injection, ACT-12 hidden routes, ACT-13 prototype pollution.
+- Active-mode guardrails: explicit confirmation (`--yes` in CI), no `DELETE` ever, writes never retried, request budget (1,500), writes refused for any non-local host, `--plan` dry run, and an audit trail of every request in the reports.
+- Passive checks: SEC-12 (API docs, GraphQL introspection), SEC-13 (secrets returned by API endpoints), SEC-14 (JWT analysis), SEC-15 (open redirect).
+- SEC-06 now also covers database dumps, `.npmrc`, AWS credentials, `/actuator/env`, `/metrics`, `phpinfo`, `server-status`, `.DS_Store` and directory listings.
+- `--sarif <file>` writes SARIF 2.1.0 for the GitHub Security tab; the Action gets `sarif` and `active` inputs.
+- The crawler now also records forms, query parameters and endpoints called with POST, PUT or PATCH.
+- `--recheck ACT-nn` (with `--active`).
+
+### Changed
+- `GuardedHttpClient` accepts a request body and `followRedirects: false`, records a request history, and can enforce a request budget. Write methods need an `ActiveConsent`, which only `grantActiveConsent()` can create, and only for localhost.
+
 ## [0.1.0] - 2026-11-09
 
 First public release.

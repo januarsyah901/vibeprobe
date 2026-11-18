@@ -11,10 +11,10 @@
   <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
 </p>
 
-**vibeprobe tests the app you are building, while it runs, the way an attacker would, but read-only and only against apps you own.** It finds the holes AI-written apps tend to ship with, explains each one in plain language, and gives you a **fix prompt** to paste into Cursor, Claude Code, Lovable or Bolt.
+**vibeprobe tests the app you are building, while it runs, the way an attacker would, but only against apps you own: read-only by default, with an optional active mode that stays on localhost.** It finds the holes AI-written apps tend to ship with, explains each one in plain language, and gives you a **fix prompt** to paste into Cursor, Claude Code, Lovable or Bolt.
 
 <p align="center">
-  <img src="docs/assets/demo.svg" alt="vibeprobe scanning a deliberately vulnerable demo app and reporting 13 findings" width="860">
+  <img src="docs/assets/demo.svg" alt="vibeprobe scanning a deliberately vulnerable demo app and reporting 22 findings" width="860">
 </p>
 
 ## Why
@@ -57,6 +57,32 @@ npx vibeprobe http://localhost:3000 --recheck SEC-01
 
 The exit code is `0` when clean, `1` when there are findings, `2` for bad input or an out-of-scope target, so it already works in CI.
 
+## Active mode (optional, localhost only)
+
+The default scan only reads. **Active mode** also sends test payloads, the way tools like OWASP ZAP do, but it is built so a beginner can use it on their own dev app:
+
+```bash
+npx vibeprobe http://localhost:3000 --active          # light: the low-noise set
+npx vibeprobe http://localhost:3000 --active full     # everything
+npx vibeprobe http://localhost:3000 --active --plan   # list every request, send none of them
+```
+
+<p align="center">
+  <img src="docs/assets/demo-active.svg" alt="vibeprobe active mode finding SQL injection, template injection and more in a demo app" width="860">
+</p>
+
+| Guardrail | How it works |
+| --- | --- |
+| **Localhost only** | Active mode refuses any other host, even one you verified. A write request to a non-local address is blocked inside the HTTP client. |
+| **You must say yes** | It explains the risk and asks `Continue? [y/N]`. Without a terminal (CI) you must pass `--yes`. |
+| **No DELETE, ever** | The active client can send `POST`, `PUT` and `PATCH` besides the read-only methods. `DELETE` is refused at construction. |
+| **Harmless payloads** | Marker strings, a single quote, `{{1337*7331}}`, `{"$ne": null}`. No `DROP`, no destructive SQL, no password lists. |
+| **Hard request budget** | A scan stops at 1,500 requests. Writes are never retried. |
+| **Audit trail** | `report.html`, `report.md` and `report.json` list every request that was sent. |
+| **`--plan`** | Shows the exact requests without sending any. |
+
+Use a **development database**: a test payload can leave an empty or junk record behind. [docs/active-mode.md](docs/active-mode.md) explains the design and what is deliberately left out.
+
 ## Use it in CI
 
 Fail the build when something serious shows up, and accept what you already know about:
@@ -77,6 +103,10 @@ npx vibeprobe http://localhost:3000 --baseline .vibeprobe-baseline.json
 | `--write-baseline <file>` | Save current findings as accepted and exit `0`. Commit the file. |
 | `--out <dir>` | Report folder (default `./vibeprobe-report`). |
 | `--rate <n>` | Requests per second (default 5). |
+| `--active [light\|full]` | Add the active checks (localhost only). Needs `--yes` in CI. |
+| `--yes`, `-y` | Confirm active mode without a prompt. |
+| `--plan` | With `--active`: list the requests, send none. |
+| `--sarif <file>` | Also write SARIF 2.1.0 for GitHub code scanning. |
 
 As a GitHub Action (works once the npm release is out):
 
@@ -90,6 +120,21 @@ As a GitHub Action (works once the npm release is out):
 ```
 
 The report is uploaded as a workflow artifact. A baseline matches findings by check, path and title, so a different port does not make an old finding look new.
+
+### GitHub Security tab (SARIF)
+
+```yaml
+permissions:
+  security-events: write
+steps:
+  - uses: januarsyah901/vibeprobe@main
+    with:
+      url: http://localhost:3000
+      fail-on: none
+      sarif: vibeprobe.sarif   # uploaded to the Security tab
+```
+
+The `sarif` and `active` inputs (and the flags behind them) arrive with the next npm release after 0.1.0; until then run from source. Findings are web endpoints, not source files, so each alert's "file" is the endpoint (for example `localhost/api/users`). Fingerprints are stable, so GitHub tracks one alert per finding instead of opening a new one on every run. The fix prompt is in each alert's help text.
 
 ## What it checks
 
@@ -106,6 +151,30 @@ The report is uploaded as a workflow artifact. A baseline matches findings by ch
 | SEC-09 | Missing security headers | Low | ✅ done |
 | SEC-10 | Session cookies without `Secure` / `HttpOnly` / `SameSite` | Medium | ✅ done |
 | SEC-11 | Source maps exposed in production | Medium | ✅ done |
+| SEC-12 | Public API docs (OpenAPI, Swagger UI) and GraphQL introspection | Medium | ✅ done |
+| SEC-13 | Secrets returned by API endpoints, not just the bundle | Critical | ✅ done |
+| SEC-14 | Login tokens (JWT): no signature, public admin token, never expires | High | ✅ done |
+| SEC-15 | Open redirects (`?next=` that leaves your site) | Medium | ✅ done |
+
+SEC-06 also covers database dumps, `.npmrc`, AWS credentials, `/actuator/env`, `/metrics`, `phpinfo`, `.DS_Store` and directory listings. Every probe needs a content signature, so a single-page app that answers `200` to everything is never reported.
+
+### Active checks (`--active`)
+
+| ID | Check | Severity | Mode |
+| --- | --- | --- | --- |
+| ACT-01 | Reflected XSS (a harmless marker tag comes back unescaped) | High | light |
+| ACT-02 | SQL injection, error-based (one quote, then a database error) | Critical | light |
+| ACT-03 | CSRF: cross-site form post accepted with no token (only when the cookie has no SameSite) | Medium | light |
+| ACT-04 | Path traversal (`../` returns a system file) | Critical | light |
+| ACT-05 | Login with no attempt limit (a burst of 12 wrong logins, never a guess list) | Medium | full |
+| ACT-06 | Data-changing endpoint that works without login (empty body, no data needed) | High | full |
+| ACT-07 | Mass assignment (`role: admin` accepted) | High | full |
+| ACT-08 | NoSQL injection in login (`{"$ne": null}`) | Critical | full |
+| ACT-09 | Server-side template injection (`{{1337*7331}}` is evaluated) | Critical | full |
+| ACT-10 | SSRF, proven with a canary listener on your own machine | Critical | full |
+| ACT-11 | Host header injection (password-reset poisoning) | Medium | light |
+| ACT-12 | Hidden routes that answer without login (GET-only wordlist) | High | light |
+| ACT-13 | Prototype pollution (`__proto__` in a JSON body) | High | full |
 
 A Supabase **anon** key is public by design and is never reported. Endpoints that are public on purpose (like `/api/products`) are not flagged; SEC-03 is high confidence only when the response holds personal-data fields. vibeprobe detects dev servers and skips production-only checks there, so `npm run dev` does not drown you in noise.
 
@@ -133,7 +202,7 @@ These are not just promises in a README. Each one has automated tests.
 
 - **Your apps only.** By default vibeprobe only talks to `localhost`, `127.0.0.1`, `[::1]` and `*.localhost`. Anything else is refused before a packet is sent.
 - **No escaping the scope.** Every redirect hop is re-checked. Hostnames are resolved and the resulting IP is validated at connect time, so DNS rebinding cannot aim the scanner at an internal network or a cloud metadata address.
-- **Read-only.** Only `GET`, `HEAD` and `OPTIONS` are sent. Other methods are blocked inside the HTTP client.
+- **Read-only by default.** Only `GET`, `HEAD` and `OPTIONS` are sent. Other methods are blocked inside the HTTP client. The only way to unlock `POST`, `PUT` and `PATCH` is `--active`, which needs your confirmation, runs on localhost only and never sends `DELETE`.
 - **Gentle.** 5 requests per second by default, with backoff on `429` and `503`.
 - **Private.** No telemetry. Secrets in reports are masked down to a few leading characters.
 
@@ -173,7 +242,10 @@ Fix prompts are filled from templates, not by an LLM, so they are consistent and
 - [x] Self-contained HTML report
 - [ ] Playwright crawler for single-page apps
 - [x] `--fail-on`, baseline file and GitHub Action for CI
-- [ ] SARIF output for the GitHub Security tab
+- [x] SARIF output for the GitHub Security tab (`--sarif`)
+- [x] SEC-12 to SEC-15: API docs, secrets in responses, JWT analysis, open redirect
+- [x] Active mode: `--active`, `--plan`, ACT-01 to ACT-13, request audit trail
+- [ ] Logged-in scan (`--login`) for IDOR and privilege escalation
 - [ ] Two-account scan for IDOR (SEC-05)
 - [x] Publish to npm
 
