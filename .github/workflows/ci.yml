@@ -59,7 +59,7 @@ jobs:
           set +e; node packages/cli/dist/bin.js http://localhost:4011 --active --out "$RUNNER_TEMP/refused" </dev/null; code=$?; set -e
           [ "$code" -eq 2 ] || { echo "expected exit 2 without --yes, got $code"; exit 1; }
           node -e "const s=JSON.parse(require('fs').readFileSync(process.env.RUNNER_TEMP+'/v.sarif','utf8')); if(s.version!=='2.1.0'||s.runs[0].results.length<20) process.exit(1)"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dogfood-reports
