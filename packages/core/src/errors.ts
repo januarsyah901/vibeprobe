@@ -14,3 +14,9 @@ export class MethodNotAllowedError extends VibeprobeError {}
 
 /** A redirect chain was longer than the client allows. */
 export class TooManyRedirectsError extends VibeprobeError {}
+
+/** Active mode was asked for without consent, or aimed at something that is not a local target. */
+export class ActiveModeError extends VibeprobeError {}
+
+/** The request budget for this scan is used up. Nothing more was sent. */
+export class RequestBudgetError extends VibeprobeError {}

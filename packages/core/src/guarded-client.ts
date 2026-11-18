@@ -1,14 +1,18 @@
 import { lookup as dnsLookup } from 'node:dns/promises';
 import type { LookupFunction } from 'node:net';
-import { Agent, fetch, type Dispatcher, type Headers, type Response } from 'undici';
-import { MethodNotAllowedError, ScopeError, TooManyRedirectsError } from './errors';
+import { Agent, Headers, fetch, type Dispatcher, type Response } from 'undici';
+import { isActiveConsent, type ActiveConsent } from './active';
+import { ActiveModeError, MethodNotAllowedError, RequestBudgetError, ScopeError, TooManyRedirectsError } from './errors';
 import { RateLimiter } from './rate-limiter';
-import type { Scope } from './scope';
+import { isLocalHost, type Scope } from './scope';
 
 export type HttpMethod = 'GET' | 'HEAD' | 'OPTIONS' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 /** The only methods allowed outside --active mode (PRD: non-destructive by default). */
 export const SAFE_METHODS: readonly HttpMethod[] = ['GET', 'HEAD', 'OPTIONS'];
+
+/** What --active may add. DELETE is never sent, in any mode. */
+export const ACTIVE_METHODS: readonly HttpMethod[] = [...SAFE_METHODS, 'POST', 'PUT', 'PATCH'];
 
 export interface ResolvedAddress {
   address: string;
@@ -24,8 +28,14 @@ export interface GuardedHttpClientOptions {
   scope: Scope;
   /** Default 5 (PRD guardrail). */
   requestsPerSecond?: number;
-  /** Methods this client may send. Default: GET, HEAD, OPTIONS. */
+  /** Methods this client may send. Default: GET, HEAD, OPTIONS. Anything else needs activeConsent. */
   allowedMethods?: readonly HttpMethod[];
+  /** Proof that the user turned on active mode (see grantActiveConsent). Required for POST, PUT, PATCH. */
+  activeConsent?: ActiveConsent;
+  /** Hard cap on requests actually sent. Active mode sets one so a scan can never run away. */
+  maxRequests?: number;
+  /** Record write requests (and everything else) instead of sending them. Used by --plan. */
+  dryRun?: boolean;
   /** Default 5. Every hop is checked against the scope again. */
   maxRedirects?: number;
   /** Retries after 429/503. Default 2. */
@@ -42,6 +52,28 @@ export interface GuardedHttpClientOptions {
 export interface GuardedRequestInit {
   method?: HttpMethod;
   headers?: Record<string, string>;
+  /** Only sent with POST, PUT, PATCH. */
+  body?: string;
+  /** Default true for safe methods. Write methods never follow redirects. */
+  followRedirects?: boolean;
+  /** Label for the audit trail (the runner sets it to the check id). */
+  tag?: string;
+}
+
+/** One request, for the audit trail in the report. */
+export interface RequestRecord {
+  tag?: string;
+  method: HttpMethod;
+  url: string;
+  /** 0 when the request was only planned (--plan) and never sent. */
+  status: number;
+  planned?: boolean;
+  body?: string;
+}
+
+/** What checks are allowed to see of the client: just "request". */
+export interface HttpClient {
+  request(input: string | URL, init?: GuardedRequestInit): Promise<GuardedResponse>;
 }
 
 export interface GuardedResponse {
@@ -69,7 +101,7 @@ const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
  * - hostnames that resolve to an address the scope forbids, checked at connect time so the
  *   address that is checked is the address that is used.
  */
-export class GuardedHttpClient {
+export class GuardedHttpClient implements HttpClient {
   readonly #scope: Scope;
   readonly #methods: ReadonlySet<HttpMethod>;
   readonly #maxRedirects: number;
@@ -80,10 +112,22 @@ export class GuardedHttpClient {
   readonly #limiter: RateLimiter;
   readonly #sleep: (ms: number) => Promise<void>;
   readonly #dispatcher: Dispatcher;
+  readonly #maxRequests: number;
+  readonly #dryRun: boolean;
+  #sent = 0;
+  /** Every request, in order. Read it to build the audit trail. */
+  readonly history: RequestRecord[] = [];
 
   constructor(options: GuardedHttpClientOptions) {
+    const methods = options.allowedMethods ?? SAFE_METHODS;
+    if (methods.includes('DELETE')) throw new ActiveModeError('vibeprobe never sends DELETE requests, in any mode.');
+    if (methods.some((m) => !SAFE_METHODS.includes(m)) && !isActiveConsent(options.activeConsent)) {
+      throw new ActiveModeError('Write methods need active mode consent. Use grantActiveConsent() (localhost only).');
+    }
     this.#scope = options.scope;
-    this.#methods = new Set(options.allowedMethods ?? SAFE_METHODS);
+    this.#maxRequests = options.maxRequests ?? Number.POSITIVE_INFINITY;
+    this.#dryRun = options.dryRun ?? false;
+    this.#methods = new Set(methods);
     this.#maxRedirects = options.maxRedirects ?? 5;
     this.#maxRetries = options.maxRetries ?? 2;
     this.#timeoutMs = options.timeoutMs ?? 15_000;
@@ -107,15 +151,27 @@ export class GuardedHttpClient {
       );
     }
 
-    let url = new URL(input);
+    const write = !SAFE_METHODS.includes(method);
+    const follow = !write && (init.followRedirects ?? true);
+    const first = new URL(input);
+    const body = write ? init.body : undefined;
+    let url = first;
     const redirects: string[] = [];
 
     for (;;) {
       this.#scope.assertUrl(url);
-      const res = await this.#sendWithRetry(url, method, init.headers);
+      // Defense in depth: a write request only ever goes to a loopback target, even if the scope allows more.
+      if (write && !isLocalHost(url.hostname)) {
+        throw new ScopeError(`${method} requests are only sent to localhost, not ${url.hostname}.`);
+      }
+      if (this.#dryRun) {
+        this.history.push({ tag: init.tag, method, url: first.href, status: 0, planned: true, body });
+        return { url: first.href, status: 0, headers: new Headers(), body: '', truncated: false, redirects };
+      }
+      const res = await this.#sendWithRetry(url, method, init.headers, body, write);
 
       const location = res.headers.get('location');
-      if (REDIRECT_STATUSES.has(res.status) && location) {
+      if (follow && REDIRECT_STATUSES.has(res.status) && location) {
         await res.body?.cancel();
         if (redirects.length >= this.#maxRedirects) {
           throw new TooManyRedirectsError(`More than ${this.#maxRedirects} redirects from ${input}.`);
@@ -125,8 +181,9 @@ export class GuardedHttpClient {
         continue;
       }
 
-      const { body, truncated } = await readCapped(res, this.#maxBodyBytes);
-      return { url: url.href, status: res.status, headers: res.headers, body, truncated, redirects };
+      const read = await readCapped(res, this.#maxBodyBytes);
+      this.history.push({ tag: init.tag, method, url: first.href, status: res.status, body });
+      return { url: url.href, status: res.status, headers: res.headers, body: read.body, truncated: read.truncated, redirects };
     }
   }
 
@@ -134,20 +191,27 @@ export class GuardedHttpClient {
     await this.#dispatcher.close();
   }
 
-  async #sendWithRetry(url: URL, method: HttpMethod, headers?: Record<string, string>) {
+  async #sendWithRetry(url: URL, method: HttpMethod, headers: Record<string, string> | undefined, body: string | undefined, write: boolean) {
+    // A write request is never repeated automatically: retrying a POST could create the same data twice.
+    const retries = write ? 0 : this.#maxRetries;
     for (let attempt = 0; ; attempt++) {
       await this.#limiter.take();
-      const res = await this.#send(url, method, headers);
-      if (!RETRY_STATUSES.has(res.status) || attempt >= this.#maxRetries) return res;
+      if (this.#sent >= this.#maxRequests) {
+        throw new RequestBudgetError(`Stopped: the limit of ${this.#maxRequests} requests for this scan was reached.`);
+      }
+      this.#sent++;
+      const res = await this.#send(url, method, headers, body);
+      if (!RETRY_STATUSES.has(res.status) || attempt >= retries) return res;
       await res.body?.cancel();
       await this.#sleep(retryDelay(res.headers.get('retry-after'), attempt));
     }
   }
 
-  async #send(url: URL, method: HttpMethod, headers?: Record<string, string>) {
+  async #send(url: URL, method: HttpMethod, headers: Record<string, string> | undefined, body: string | undefined) {
     try {
       return await fetch(url, {
         method,
+        body,
         headers: { 'user-agent': this.#userAgent, ...headers },
         redirect: 'manual',
         dispatcher: this.#dispatcher,
@@ -220,4 +284,13 @@ function findCause<T extends Error>(err: unknown, type: new (...args: never[]) =
     cur = (cur as { cause?: unknown }).cause;
   }
   return undefined;
+}
+
+export type ActiveClientOptions = Omit<GuardedHttpClientOptions, 'allowedMethods' | 'activeConsent'> & {
+  consent: ActiveConsent;
+};
+
+/** The one place a client that can send POST, PUT and PATCH is made. Needs consent; capped by default. */
+export function createActiveClient({ consent, ...options }: ActiveClientOptions): GuardedHttpClient {
+  return new GuardedHttpClient({ maxRequests: 1500, ...options, allowedMethods: ACTIVE_METHODS, activeConsent: consent });
 }
