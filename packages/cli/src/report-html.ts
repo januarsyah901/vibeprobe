@@ -1,9 +1,11 @@
-import type { Finding, Severity } from '@vibeprobe/core';
+import type { Finding, RequestRecord, Severity } from '@vibeprobe/core';
 
 export interface HtmlMeta {
   target: string;
   version: string;
   generatedAt: Date;
+  /** Active mode only: every request that was sent, for the audit table. */
+  requests?: RequestRecord[];
 }
 
 export function escapeHtml(s: string): string {
@@ -37,6 +39,7 @@ pre{margin:0;padding:12px;background:var(--code);border:1px solid var(--border);
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);cursor:pointer}
 button:hover{border-color:var(--accent)}button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.audit{overflow-x:auto}.audit table{border-collapse:collapse;width:100%;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.audit th,.audit td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--border);word-break:break-all}
 .clean{padding:24px;border:1px solid var(--border);border-radius:8px;background:var(--card);text-align:center}
 footer{margin-top:40px;font-size:13px;color:var(--muted)}
 `;
@@ -60,7 +63,7 @@ function finding(f: Finding, id: string): string {
 <p>${escapeHtml(f.why)}</p>
 <h4>Evidence</h4>
 <pre>${escapeHtml(f.evidence.request)}${f.evidence.status !== undefined ? ` → ${f.evidence.status}` : ''}\n${escapeHtml(f.evidence.excerpt)}</pre>
-<h4>Reproduce (read-only)</h4>
+<h4>Reproduce${f.checkId.startsWith('ACT-') ? ' (sends the same request again; only run it against your own local app)' : ' (read-only)'}</h4>
 <pre>${escapeHtml(f.reproduce)}</pre>
 <div class="row"><h4>Fix prompt: paste into your AI coding tool</h4><button type="button" data-copy="${id}-fix">Copy</button></div>
 <pre id="${id}-fix">${escapeHtml(f.fixPrompt)}</pre>
@@ -100,6 +103,17 @@ export function toHtml(all: Finding[], meta: HtmlMeta): string {
     body.push(
       `<h2>Needs a human look</h2><p class="muted">Low confidence: vibeprobe could not prove these. They do not fail CI. Check whether they are intended.</p>`,
       ...low.map((f) => finding(f, ids.get(f)!)),
+    );
+  }
+  if (meta.requests && meta.requests.length > 0) {
+    const rows = meta.requests
+      .slice(0, 300)
+      .map((r) => `<tr><td>${escapeHtml(r.tag ?? '')}</td><td>${r.method}</td><td>${escapeHtml(r.url)}</td><td>${r.status}</td></tr>`)
+      .join('');
+    body.push(
+      `<h2>What vibeprobe sent</h2><p class="muted">Active mode: ${meta.requests.length} request${meta.requests.length > 1 ? 's' : ''}, all to your own machine.` +
+        (meta.requests.length > 300 ? ' The first 300 are listed; all are in report.json.' : '') +
+        `</p><div class="audit"><table><thead><tr><th>Check</th><th>Method</th><th>URL</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`,
     );
   }
   body.push(`<footer>Generated locally by vibeprobe. Nothing was sent anywhere. Secrets are masked.</footer>`);

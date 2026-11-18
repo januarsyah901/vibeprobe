@@ -33,6 +33,7 @@ pre{margin:0;padding:12px;background:var(--code);border:1px solid var(--border);
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);cursor:pointer}
 button:hover{border-color:var(--accent)}button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.audit{overflow-x:auto}.audit table{border-collapse:collapse;width:100%;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.audit th,.audit td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--border);word-break:break-all}
 .clean{padding:24px;border:1px solid var(--border);border-radius:8px;background:var(--card);text-align:center}
 footer{margin-top:40px;font-size:13px;color:var(--muted)}
 </style>

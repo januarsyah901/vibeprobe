@@ -1,8 +1,8 @@
-import type { Finding, Severity } from '@vibeprobe/core';
+import type { Finding, RequestRecord, Severity } from '@vibeprobe/core';
 
 const LABEL: Record<Severity, string> = { critical: 'CRITICAL', high: 'HIGH', medium: 'MEDIUM', low: 'LOW' };
 
-export function toMarkdown(target: string, all: Finding[]): string {
+export function toMarkdown(target: string, all: Finding[], requests?: RequestRecord[]): string {
   const findings = all.filter((f) => f.confidence !== 'low');
   const lowConfidence = all.filter((f) => f.confidence === 'low');
   const lines = [`# vibeprobe report`, '', `Target: ${target}`, `Findings: ${findings.length}`, ''];
@@ -27,7 +27,7 @@ export function toMarkdown(target: string, all: Finding[]): string {
       f.evidence.excerpt,
       '```',
       '',
-      'Reproduce (read-only):',
+      f.checkId.startsWith('ACT-') ? 'Reproduce (sends the same request again; only run it against your own local app):' : 'Reproduce (read-only):',
       '```bash',
       f.reproduce,
       '```',
@@ -48,6 +48,12 @@ export function toMarkdown(target: string, all: Finding[]): string {
       '',
     );
     lowConfidence.forEach(render);
+  }
+  if (requests && requests.length > 0) {
+    lines.push('# What vibeprobe sent (active mode)', '', `${requests.length} request${requests.length > 1 ? 's' : ''}, all to your own machine. Nothing else was contacted.`, '', '| Check | Method | URL | Status |', '| --- | --- | --- | --- |');
+    for (const r of requests.slice(0, 300)) lines.push(`| ${r.tag ?? ''} | ${r.method} | ${r.url.replace(/\|/g, '%7C')} | ${r.status} |`);
+    if (requests.length > 300) lines.push('', `…and ${requests.length - 300} more (all are in report.json).`);
+    lines.push('');
   }
   return lines.join('\n');
 }
