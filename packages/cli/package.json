@@ -40,7 +40,7 @@
     "postpack": "rm -f README.md LICENSE"
   },
   "dependencies": {
-    "undici": "^8.12.4"
+    "undici": "^8.13.1"
   },
   "devDependencies": {
     "@vibeprobe/core": "0.0.0",
